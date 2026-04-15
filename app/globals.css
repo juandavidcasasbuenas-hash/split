@@ -1,0 +1,240 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --paper: #f1eadb;
+  --paper2: #e8ddc7;
+  --ink: #121821;
+  --ink2: #1e2836;
+  --graphite: #5a6374;
+  --rule: #2a3140;
+  --signal: #c1432a;
+  --tail: #486b4e;
+  --ochre: #b48a3c;
+}
+
+html,
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-instrument), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* paper grain */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.35;
+  mix-blend-mode: multiply;
+  background-image: radial-gradient(
+      circle at 20% 10%,
+      rgba(180, 138, 60, 0.05),
+      transparent 60%
+    ),
+    radial-gradient(circle at 80% 90%, rgba(18, 24, 33, 0.05), transparent 60%);
+}
+
+/* grid paper background for hero */
+.grid-paper {
+  background-image: linear-gradient(
+      to right,
+      rgba(18, 24, 33, 0.05) 1px,
+      transparent 1px
+    ),
+    linear-gradient(to bottom, rgba(18, 24, 33, 0.05) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.grid-paper-fine {
+  background-image: linear-gradient(
+      to right,
+      rgba(18, 24, 33, 0.035) 1px,
+      transparent 1px
+    ),
+    linear-gradient(to bottom, rgba(18, 24, 33, 0.035) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+
+/* technical drawing rule */
+.rule-ink {
+  border-color: var(--ink);
+}
+.rule-fine {
+  border-color: rgba(18, 24, 33, 0.2);
+}
+
+/* monospace tabular numbers */
+.mono-nums {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* subtle noise */
+.noise {
+  position: relative;
+}
+.noise::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* crosshair corner marks */
+.corner-marks {
+  position: relative;
+}
+.corner-marks::before,
+.corner-marks::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--ink);
+}
+.corner-marks::before {
+  top: -7px;
+  left: -7px;
+  border-right: none;
+  border-bottom: none;
+}
+.corner-marks::after {
+  bottom: -7px;
+  right: -7px;
+  border-left: none;
+  border-top: none;
+}
+
+/* buttons */
+.btn-ink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.75rem 1.1rem;
+  font-family: var(--font-instrument), system-ui, sans-serif;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  transition: transform 0.18s ease, background 0.18s ease;
+  cursor: pointer;
+  border: 1px solid var(--ink);
+}
+.btn-ink:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.btn-ink:active {
+  transform: translate(0, 0);
+  box-shadow: none;
+}
+.btn-ink[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: var(--ink);
+  padding: 0.65rem 1rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  border: 1px solid var(--ink);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.btn-ghost:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* input styling */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.field label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--graphite);
+  font-family: var(--font-instrument);
+}
+.field input,
+.field select {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--ink);
+  padding: 0.35rem 0;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--ink);
+  outline: none;
+  font-variant-numeric: tabular-nums;
+}
+.field input:focus,
+.field select:focus {
+  border-bottom-color: var(--signal);
+}
+
+.eyebrow {
+  font-family: var(--font-instrument);
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--graphite);
+}
+
+.hairline {
+  height: 1px;
+  background: var(--ink);
+  opacity: 0.9;
+}
+
+/* stamp — imitation folio mark */
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--ink);
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+/* thinking dots */
+@keyframes dot {
+  0%, 20% { opacity: 0.2; }
+  50% { opacity: 1; }
+  100% { opacity: 0.2; }
+}
+.thinking span {
+  display: inline-block;
+  margin: 0 1px;
+  animation: dot 1.2s infinite;
+}
+.thinking span:nth-child(2) { animation-delay: 0.2s; }
+.thinking span:nth-child(3) { animation-delay: 0.4s; }
+
+/* scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(18, 24, 33, 0.4) transparent;
+}
