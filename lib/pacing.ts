@@ -1,4 +1,4 @@
-export type PacingStyle = "steady" | "variable" | "surges";
+export type PacingStyle = "steady" | "variable" | "surges" | "custom";
 
 export const PACING: Record<
   PacingStyle,
@@ -27,6 +27,17 @@ export const PACING: Record<
     descentRelief: 0.7,
     caption: "Above-threshold kicks on climbs, freewheel descents — highest VI",
   },
+  custom: {
+    label: "Custom",
+    climbBonus: 0.18,
+    descentRelief: 0.4,
+    caption: "Dial climb and descent percentages yourself",
+  },
 };
 
-export const PACING_ORDER: PacingStyle[] = ["steady", "variable", "surges"];
+export const PACING_ORDER: PacingStyle[] = [
+  "steady",
+  "variable",
+  "surges",
+  "custom",
+];

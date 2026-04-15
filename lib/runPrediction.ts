@@ -50,11 +50,19 @@ export async function runPrediction(opts: RunOptions = {}): Promise<void> {
       weather = cachedWeather!;
     }
 
+    const climbBonus =
+      race.pacing === "custom"
+        ? race.customClimbBonus
+        : PACING[race.pacing].climbBonus;
+    const descentRelief =
+      race.pacing === "custom"
+        ? race.customDescentRelief
+        : PACING[race.pacing].descentRelief;
     const baseOptions = {
       crrMultiplier: SURFACES[race.surface].crrMul,
       draftingCdaMul: DRAFTING[race.drafting].cdaMul,
-      climbBonus: PACING[race.pacing].climbBonus,
-      descentRelief: PACING[race.pacing].descentRelief,
+      climbBonus,
+      descentRelief,
     };
 
     setRunning(true, "Solving physics");

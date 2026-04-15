@@ -48,6 +48,8 @@ export interface RaceSetup {
   surface: Surface;
   drafting: Drafting;
   pacing: PacingStyle;
+  customClimbBonus: number; // used when pacing === "custom"
+  customDescentRelief: number;
 }
 
 export interface WeatherPoint {

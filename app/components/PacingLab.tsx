@@ -9,6 +9,7 @@ export function PacingLab() {
   const setSurface = useStore((s) => s.setSurface);
   const setDrafting = useStore((s) => s.setDrafting);
   const setPacing = useStore((s) => s.setPacing);
+  const setCustomPacing = useStore((s) => s.setCustomPacing);
   const course = useStore((s) => s.course);
   const predA = useStore((s) => s.predictionA);
 
@@ -125,6 +126,13 @@ export function PacingLab() {
               {PACING_ORDER.map((key) => {
                 const p = PACING[key];
                 const active = race.pacing === key;
+                const isCustom = key === "custom";
+                const climbPct = isCustom
+                  ? race.customClimbBonus
+                  : p.climbBonus;
+                const descentPct = isCustom
+                  ? race.customDescentRelief
+                  : p.descentRelief;
                 return (
                   <button
                     key={key}
@@ -153,18 +161,99 @@ export function PacingLab() {
                         active ? "text-paper" : "text-graphite"
                       }`}
                     >
-                      climb +{Math.round(p.climbBonus * 100)}% · descent −
-                      {Math.round(p.descentRelief * 100)}%
+                      climb +{Math.round(climbPct * 100)}% · descent −
+                      {Math.round(descentPct * 100)}%
                     </div>
                   </button>
                 );
               })}
             </div>
+            {race.pacing === "custom" && (
+              <CustomPacingSliders
+                climbBonus={race.customClimbBonus}
+                descentRelief={race.customDescentRelief}
+                onChange={setCustomPacing}
+              />
+            )}
           </div>
         </div>
 
       </div>
     </section>
+  );
+}
+
+function CustomPacingSliders({
+  climbBonus,
+  descentRelief,
+  onChange,
+}: {
+  climbBonus: number;
+  descentRelief: number;
+  onChange: (patch: { climbBonus?: number; descentRelief?: number }) => void;
+}) {
+  return (
+    <div className="mt-3 border border-ink/30 p-3">
+      <div className="eyebrow mb-2">Tune percentages</div>
+      <SliderRow
+        label="Climb bonus"
+        value={climbBonus}
+        min={0}
+        max={0.4}
+        step={0.01}
+        format={(v) => `+${Math.round(v * 100)}%`}
+        onChange={(v) => onChange({ climbBonus: v })}
+      />
+      <SliderRow
+        label="Descent relief"
+        value={descentRelief}
+        min={0}
+        max={0.9}
+        step={0.01}
+        format={(v) => `−${Math.round(v * 100)}%`}
+        onChange={(v) => onChange({ descentRelief: v })}
+      />
+      <div className="mt-2 text-[0.7rem] text-graphite">
+        Applied at steepest grades (climb ≥12%, descent ≥20%) and scaled down
+        linearly on shallower terrain.
+      </div>
+    </div>
+  );
+}
+
+function SliderRow({
+  label,
+  value,
+  min,
+  max,
+  step,
+  format,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  format: (v: number) => string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 py-1.5">
+      <div className="w-28 text-xs text-ink">{label}</div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="flex-1 accent-ink"
+      />
+      <div className="w-14 text-right font-mono text-xs mono-nums text-ink">
+        {format(value)}
+      </div>
+    </div>
   );
 }
 

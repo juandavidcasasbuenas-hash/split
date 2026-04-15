@@ -75,6 +75,10 @@ interface State {
   setSurface: (s: Surface) => void;
   setDrafting: (d: Drafting) => void;
   setPacing: (p: PacingStyle) => void;
+  setCustomPacing: (patch: {
+    climbBonus?: number;
+    descentRelief?: number;
+  }) => void;
 
   setWeather: (w: WeatherBundle | null) => void;
   setWeatherError: (e: string | null) => void;
@@ -111,6 +115,8 @@ export const useStore = create<State>((set) => ({
     surface: "tarmac",
     drafting: "solo",
     pacing: "variable",
+    customClimbBonus: 0.18,
+    customDescentRelief: 0.4,
   },
   weather: null,
   weatherError: null,
@@ -153,6 +159,17 @@ export const useStore = create<State>((set) => ({
   setSurface: (surface) => set((s) => ({ race: { ...s.race, surface } })),
   setDrafting: (drafting) => set((s) => ({ race: { ...s.race, drafting } })),
   setPacing: (pacing) => set((s) => ({ race: { ...s.race, pacing } })),
+  setCustomPacing: (patch) =>
+    set((s) => ({
+      race: {
+        ...s.race,
+        pacing: "custom",
+        customClimbBonus:
+          patch.climbBonus ?? s.race.customClimbBonus,
+        customDescentRelief:
+          patch.descentRelief ?? s.race.customDescentRelief,
+      },
+    })),
 
   setWeather: (w) => set({ weather: w, weatherError: null }),
   setWeatherError: (e) => set({ weatherError: e }),

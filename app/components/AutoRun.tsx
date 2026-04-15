@@ -17,6 +17,8 @@ export function AutoRun() {
   const surface = useStore((s) => s.race.surface);
   const drafting = useStore((s) => s.race.drafting);
   const pacing = useStore((s) => s.race.pacing);
+  const customClimbBonus = useStore((s) => s.race.customClimbBonus);
+  const customDescentRelief = useStore((s) => s.race.customDescentRelief);
   const duelMode = useStore((s) => s.duelMode);
 
   // Full run whenever the course swaps or start time moves
@@ -43,6 +45,8 @@ export function AutoRun() {
     surface,
     drafting,
     pacing,
+    customClimbBonus,
+    customDescentRelief,
     duelMode,
   ]);
 
