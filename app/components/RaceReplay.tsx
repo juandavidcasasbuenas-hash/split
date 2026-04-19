@@ -1,20 +1,29 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useStore } from "@/lib/store";
+import { useStore, SLOT_COLORS } from "@/lib/store";
+import type { RiderSlot } from "@/lib/store";
 import { buildTrajectory, sampleAt, type TrajPoint } from "@/lib/trajectory";
 import { fmtTime, fmtDelta } from "@/lib/util";
 
-const RED = "#C1432A";
-const BLUE = "#2B6E8A";
+interface RiderRun {
+  slot: RiderSlot;
+  name: string;
+  color: string;
+  traj: TrajPoint[];
+  totalTime: number;
+  distanceKm: number;
+}
 
 export function RaceReplay() {
-  const duel = useStore((s) => s.duelMode);
+  const battle = useStore((s) => s.battleMode);
   const predA = useStore((s) => s.predictionA);
   const predB = useStore((s) => s.predictionB);
+  const predC = useStore((s) => s.predictionC);
   const course = useStore((s) => s.course);
   const nameA = useStore((s) => s.riderNameA);
   const nameB = useStore((s) => s.riderNameB);
+  const nameC = useStore((s) => s.riderNameC);
 
   const trajA = useMemo(
     () => (predA ? buildTrajectory(predA, 0.5) : null),
@@ -24,11 +33,15 @@ export function RaceReplay() {
     () => (predB ? buildTrajectory(predB, 0.5) : null),
     [predB],
   );
+  const trajC = useMemo(
+    () => (predC ? buildTrajectory(predC, 0.5) : null),
+    [predC],
+  );
 
   const Ttotal = useMemo(() => {
-    if (!predA || !predB) return 0;
-    return Math.max(predA.totalTime, predB.totalTime);
-  }, [predA, predB]);
+    if (!predA || !predB || !predC) return 0;
+    return Math.max(predA.totalTime, predB.totalTime, predC.totalTime);
+  }, [predA, predB, predC]);
 
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -36,14 +49,14 @@ export function RaceReplay() {
   const [celebrated, setCelebrated] = useState(false);
   const [view, setView] = useState<"map" | "profile">("profile");
 
-  // Reset and auto-play when a new duel result arrives
+  // Reset and auto-play when a new battle result arrives
   useEffect(() => {
-    if (predA && predB) {
+    if (predA && predB && predC) {
       setT(0);
       setCelebrated(false);
       setPlaying(true);
     }
-  }, [predA, predB]);
+  }, [predA, predB, predC]);
 
   useEffect(() => {
     if (!playing || Ttotal === 0) return;
@@ -68,8 +81,11 @@ export function RaceReplay() {
 
   // trigger celebration when first rider finishes
   const firstFinishT = useMemo(
-    () => (predA && predB ? Math.min(predA.totalTime, predB.totalTime) : 0),
-    [predA, predB],
+    () =>
+      predA && predB && predC
+        ? Math.min(predA.totalTime, predB.totalTime, predC.totalTime)
+        : 0,
+    [predA, predB, predC],
   );
   useEffect(() => {
     if (!celebrated && firstFinishT > 0 && t >= firstFinishT) {
@@ -77,26 +93,55 @@ export function RaceReplay() {
     }
   }, [t, firstFinishT, celebrated]);
 
-  if (!duel || !predA || !predB || !trajA || !trajB || !course) return null;
+  if (!battle || !predA || !predB || !predC || !trajA || !trajB || !trajC || !course)
+    return null;
 
-  const posA = sampleAt(trajA, t);
-  const posB = sampleAt(trajB, t);
-  const winnerA = predA.totalTime < predB.totalTime;
-  const winnerName = winnerA ? nameA : nameB;
-  const winnerColor = winnerA ? RED : BLUE;
-  const finalGap = Math.abs(predA.totalTime - predB.totalTime);
+  const runs: RiderRun[] = [
+    {
+      slot: "A",
+      name: nameA,
+      color: SLOT_COLORS.A,
+      traj: trajA,
+      totalTime: predA.totalTime,
+      distanceKm: predA.distanceKm,
+    },
+    {
+      slot: "B",
+      name: nameB,
+      color: SLOT_COLORS.B,
+      traj: trajB,
+      totalTime: predB.totalTime,
+      distanceKm: predB.distanceKm,
+    },
+    {
+      slot: "C",
+      name: nameC,
+      color: SLOT_COLORS.C,
+      traj: trajC,
+      totalTime: predC.totalTime,
+      distanceKm: predC.distanceKm,
+    },
+  ];
 
-  // Live gap: spatial (km) and time (how long ago the leader was at trailer's km)
-  const gapKm = posA.km - posB.km;
-  const aAhead = gapKm > 0;
-  const leaderTraj = aAhead ? trajA : trajB;
-  const trailerKm = aAhead ? posB.km : posA.km;
-  const timeGap = Math.max(
-    0,
-    t - timeAtKm(leaderTraj, trailerKm),
-  );
-  const aFinished = t >= predA.totalTime;
-  const bFinished = t >= predB.totalTime;
+  const positions = runs.map((r) => sampleAt(r.traj, t));
+
+  // Standings: by current km (descending), tiebreak on faster traj history
+  const standings = runs
+    .map((r, i) => ({ run: r, pos: positions[i] }))
+    .sort((a, b) => b.pos.km - a.pos.km);
+
+  const leader = standings[0];
+  const second = standings[1];
+  const leaderTimeAtSecondKm = timeAtKm(leader.run.traj, second.pos.km);
+  const timeGap = Math.max(0, t - leaderTimeAtSecondKm);
+  const gapKm = leader.pos.km - second.pos.km;
+
+  const winnerRun = [...runs].sort((a, b) => a.totalTime - b.totalTime)[0];
+  const winnerName = winnerRun.name;
+  const winnerColor = winnerRun.color;
+  const finalGap =
+    [...runs].sort((a, b) => a.totalTime - b.totalTime)[1].totalTime -
+    winnerRun.totalTime;
 
   return (
     <section className="relative overflow-hidden border-b border-ink/70 bg-ink text-paper">
@@ -110,17 +155,25 @@ export function RaceReplay() {
               Folio III · Race Replay
             </div>
             <div className="font-display text-3xl leading-tight md:text-4xl">
-              Duel <span style={{ color: RED }}>{nameA}</span>{" "}
-              <span style={{ color: "rgba(241,234,219,0.5)" }}>vs.</span>{" "}
-              <span style={{ color: BLUE }}>{nameB}</span>
+              Battle{" "}
+              {runs.map((r, i) => (
+                <span key={r.slot}>
+                  <span style={{ color: r.color }}>{r.name}</span>
+                  {i < runs.length - 1 && (
+                    <span style={{ color: "rgba(241,234,219,0.5)" }}>
+                      {i === runs.length - 2 ? " vs. " : " · "}
+                    </span>
+                  )}
+                </span>
+              ))}
             </div>
           </div>
           <LiveGap
-            aAhead={aAhead}
+            leaderName={leader.run.name}
+            leaderColor={leader.run.color}
+            secondName={second.run.name}
             timeGap={timeGap}
             gapKm={Math.abs(gapKm)}
-            nameA={nameA}
-            nameB={nameB}
             finished={t >= Ttotal}
             winnerName={winnerName}
             winnerColor={winnerColor}
@@ -154,19 +207,15 @@ export function RaceReplay() {
           {view === "map" ? (
             <MapView
               course={course}
-              trajA={trajA}
-              trajB={trajB}
-              posA={posA}
-              posB={posB}
+              runs={runs}
+              positions={positions}
               t={t}
             />
           ) : (
             <ProfileView
               course={course}
-              trajA={trajA}
-              trajB={trajB}
-              posA={posA}
-              posB={posB}
+              runs={runs}
+              positions={positions}
               t={t}
             />
           )}
@@ -196,9 +245,7 @@ export function RaceReplay() {
                     {winnerName}
                   </div>
                   <div className="mt-1 font-mono text-xs text-paper/70 mono-nums">
-                    winning split {fmtTime(
-                      winnerA ? predA.totalTime : predB.totalTime,
-                    )}{" "}
+                    winning split {fmtTime(winnerRun.totalTime)}{" "}
                     · margin {fmtDelta(finalGap).replace("+", "")}
                   </div>
                 </div>
@@ -208,23 +255,18 @@ export function RaceReplay() {
         </div>
 
         {/* Live stats cards */}
-        <div className="mt-6 grid grid-cols-1 gap-[1px] border border-paper/20 bg-paper/20 md:grid-cols-2">
-          <RiderCard
-            name={nameA}
-            color={RED}
-            pos={posA}
-            finished={aFinished}
-            totalTime={predA.totalTime}
-            totalKm={predA.distanceKm}
-          />
-          <RiderCard
-            name={nameB}
-            color={BLUE}
-            pos={posB}
-            finished={bFinished}
-            totalTime={predB.totalTime}
-            totalKm={predB.distanceKm}
-          />
+        <div className="mt-6 grid grid-cols-1 gap-[1px] border border-paper/20 bg-paper/20 md:grid-cols-3">
+          {runs.map((r, i) => (
+            <RiderCard
+              key={r.slot}
+              name={r.name}
+              color={r.color}
+              pos={positions[i]}
+              finished={t >= r.totalTime}
+              totalTime={r.totalTime}
+              totalKm={r.distanceKm}
+            />
+          ))}
         </div>
 
         {/* Controls */}
@@ -325,28 +367,26 @@ export function RaceReplay() {
 }
 
 function LiveGap({
-  aAhead,
+  leaderName,
+  leaderColor,
+  secondName,
   timeGap,
   gapKm,
-  nameA,
-  nameB,
   finished,
   winnerName,
   winnerColor,
   finalGap,
 }: {
-  aAhead: boolean;
+  leaderName: string;
+  leaderColor: string;
+  secondName: string;
   timeGap: number;
   gapKm: number;
-  nameA: string;
-  nameB: string;
   finished: boolean;
   winnerName: string;
   winnerColor: string;
   finalGap: number;
 }) {
-  const leader = aAhead ? nameA : nameB;
-  const color = aAhead ? RED : BLUE;
   if (finished) {
     return (
       <div
@@ -383,15 +423,15 @@ function LiveGap({
   return (
     <div
       className="border-2 px-5 py-3"
-      style={{ borderColor: color }}
+      style={{ borderColor: leaderColor }}
     >
       <div
         className="text-[0.6rem] uppercase tracking-[0.3em]"
-        style={{ color }}
+        style={{ color: leaderColor }}
       >
-        {leader} leads by
+        {leaderName} leads {secondName} by
       </div>
-      <div className="font-display text-2xl" style={{ color }}>
+      <div className="font-display text-2xl" style={{ color: leaderColor }}>
         <span className="mono-nums">{fmtTime(timeGap)}</span>{" "}
         <span className="text-base text-paper/70 mono-nums">
           · {gapKm.toFixed(2)} km
@@ -487,17 +527,13 @@ function Stat({
 
 function MapView({
   course,
-  trajA,
-  trajB,
-  posA,
-  posB,
+  runs,
+  positions,
   t,
 }: {
   course: NonNullable<ReturnType<typeof useStore.getState>["course"]>;
-  trajA: TrajPoint[];
-  trajB: TrajPoint[];
-  posA: TrajPoint;
-  posB: TrajPoint;
+  runs: RiderRun[];
+  positions: TrajPoint[];
   t: number;
 }) {
   const { bbox } = course;
@@ -549,8 +585,7 @@ function MapView({
       .join(" ");
   };
 
-  const pA = project(posA.lat, posA.lon);
-  const pB = project(posB.lat, posB.lon);
+  const projected = positions.map((p) => project(p.lat, p.lon));
   const start = project(
     course.segments[0].lat,
     course.segments[0].lon,
@@ -591,24 +626,18 @@ function MapView({
         />
 
         {/* trails */}
-        <path
-          d={trailPath(trajA)}
-          stroke={RED}
-          fill="none"
-          strokeWidth="3"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          opacity="0.85"
-        />
-        <path
-          d={trailPath(trajB)}
-          stroke={BLUE}
-          fill="none"
-          strokeWidth="3"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          opacity="0.85"
-        />
+        {runs.map((r) => (
+          <path
+            key={r.slot}
+            d={trailPath(r.traj)}
+            stroke={r.color}
+            fill="none"
+            strokeWidth="3"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            opacity="0.85"
+          />
+        ))}
 
         {/* start marker */}
         <circle
@@ -631,22 +660,22 @@ function MapView({
         </text>
 
         {/* rider dots */}
-        <motion.g animate={{ cx: pA.x, cy: pA.y }}>
-          <circle cx={pA.x} cy={pA.y} r="16" fill={RED} opacity="0.18" />
-          <circle cx={pA.x} cy={pA.y} r="10" fill={RED} opacity="0.35" />
-          <circle
-            cx={pA.x}
-            cy={pA.y}
-            r="5.5"
-            fill={RED}
-            filter="url(#glowA)"
-          />
-        </motion.g>
-        <motion.g animate={{ cx: pB.x, cy: pB.y }}>
-          <circle cx={pB.x} cy={pB.y} r="16" fill={BLUE} opacity="0.18" />
-          <circle cx={pB.x} cy={pB.y} r="10" fill={BLUE} opacity="0.35" />
-          <circle cx={pB.x} cy={pB.y} r="5.5" fill={BLUE} />
-        </motion.g>
+        {runs.map((r, i) => {
+          const p = projected[i];
+          return (
+            <motion.g key={r.slot} animate={{ cx: p.x, cy: p.y }}>
+              <circle cx={p.x} cy={p.y} r="16" fill={r.color} opacity="0.18" />
+              <circle cx={p.x} cy={p.y} r="10" fill={r.color} opacity="0.35" />
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r="5.5"
+                fill={r.color}
+                filter="url(#glowA)"
+              />
+            </motion.g>
+          );
+        })}
 
         {/* compass */}
         <g transform={`translate(${W - 60}, ${H - 60})`}>
@@ -686,17 +715,13 @@ function MapView({
  */
 function ProfileView({
   course,
-  trajA,
-  trajB,
-  posA,
-  posB,
+  runs,
+  positions,
   t,
 }: {
   course: NonNullable<ReturnType<typeof useStore.getState>["course"]>;
-  trajA: TrajPoint[];
-  trajB: TrajPoint[];
-  posA: TrajPoint;
-  posB: TrajPoint;
+  runs: RiderRun[];
+  positions: TrajPoint[];
   t: number;
 }) {
   const W = 1000;
@@ -764,8 +789,7 @@ function ProfileView({
       .join(" ");
   };
 
-  const dotA = { x: xAt(posA.km), y: yAt(posA.ele) };
-  const dotB = { x: xAt(posB.km), y: yAt(posB.ele) };
+  const dots = positions.map((p) => ({ x: xAt(p.km), y: yAt(p.ele) }));
 
   // x-axis ticks
   const nTicks = 6;
@@ -882,56 +906,41 @@ function ProfileView({
       </text>
 
       {/* rider trails */}
-      <path
-        d={trailPath(trajA)}
-        stroke={RED}
-        fill="none"
-        strokeWidth="2.2"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        opacity="0.95"
-      />
-      <path
-        d={trailPath(trajB)}
-        stroke={BLUE}
-        fill="none"
-        strokeWidth="2.2"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        opacity="0.95"
-      />
+      {runs.map((r) => (
+        <path
+          key={`trail-${r.slot}`}
+          d={trailPath(r.traj)}
+          stroke={r.color}
+          fill="none"
+          strokeWidth="2.2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          opacity="0.95"
+        />
+      ))}
 
       {/* vertical guides from dots to baseline */}
-      <line
-        x1={dotA.x}
-        x2={dotA.x}
-        y1={dotA.y}
-        y2={yBase}
-        stroke={RED}
-        strokeDasharray="2 3"
-        opacity="0.4"
-      />
-      <line
-        x1={dotB.x}
-        x2={dotB.x}
-        y1={dotB.y}
-        y2={yBase}
-        stroke={BLUE}
-        strokeDasharray="2 3"
-        opacity="0.4"
-      />
+      {runs.map((r, i) => (
+        <line
+          key={`guide-${r.slot}`}
+          x1={dots[i].x}
+          x2={dots[i].x}
+          y1={dots[i].y}
+          y2={yBase}
+          stroke={r.color}
+          strokeDasharray="2 3"
+          opacity="0.4"
+        />
+      ))}
 
       {/* rider dots */}
-      <g>
-        <circle cx={dotA.x} cy={dotA.y} r="14" fill={RED} opacity="0.18" />
-        <circle cx={dotA.x} cy={dotA.y} r="8" fill={RED} opacity="0.35" />
-        <circle cx={dotA.x} cy={dotA.y} r="5" fill={RED} filter="url(#glow)" />
-      </g>
-      <g>
-        <circle cx={dotB.x} cy={dotB.y} r="14" fill={BLUE} opacity="0.18" />
-        <circle cx={dotB.x} cy={dotB.y} r="8" fill={BLUE} opacity="0.35" />
-        <circle cx={dotB.x} cy={dotB.y} r="5" fill={BLUE} />
-      </g>
+      {runs.map((r, i) => (
+        <g key={`dot-${r.slot}`}>
+          <circle cx={dots[i].x} cy={dots[i].y} r="14" fill={r.color} opacity="0.18" />
+          <circle cx={dots[i].x} cy={dots[i].y} r="8" fill={r.color} opacity="0.35" />
+          <circle cx={dots[i].x} cy={dots[i].y} r="5" fill={r.color} filter="url(#glow)" />
+        </g>
+      ))}
     </svg>
   );
 }

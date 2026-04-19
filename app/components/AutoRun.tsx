@@ -6,7 +6,7 @@ import { runPrediction } from "@/lib/runPrediction";
 /**
  * Invisible orchestrator:
  *  - On course load or start-time change: fetches weather + full prediction
- *  - On other knob changes (rider, surface, drafting, pacing, duel): fast
+ *  - On other knob changes (rider, surface, drafting, pacing, battle): fast
  *    physics-only rerun using cached weather, debounced 350ms
  */
 export function AutoRun() {
@@ -14,12 +14,13 @@ export function AutoRun() {
   const startIso = useStore((s) => s.race.startIso);
   const riderA = useStore((s) => s.riderA);
   const riderB = useStore((s) => s.riderB);
+  const riderC = useStore((s) => s.riderC);
   const surface = useStore((s) => s.race.surface);
   const drafting = useStore((s) => s.race.drafting);
   const pacing = useStore((s) => s.race.pacing);
   const customClimbBonus = useStore((s) => s.race.customClimbBonus);
   const customDescentRelief = useStore((s) => s.race.customDescentRelief);
-  const duelMode = useStore((s) => s.duelMode);
+  const battleMode = useStore((s) => s.battleMode);
 
   // Full run whenever the course swaps or start time moves
   const lastCourseKey = useRef<string | null>(null);
@@ -42,12 +43,13 @@ export function AutoRun() {
   }, [
     riderA,
     riderB,
+    riderC,
     surface,
     drafting,
     pacing,
     customClimbBonus,
     customDescentRelief,
-    duelMode,
+    battleMode,
   ]);
 
   return null;

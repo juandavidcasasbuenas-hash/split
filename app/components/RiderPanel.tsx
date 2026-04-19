@@ -1,31 +1,40 @@
 "use client";
-import { useStore, cdaByPosition } from "@/lib/store";
+import { useStore, cdaByPosition, SLOT_COLORS } from "@/lib/store";
 import type { Position, RiderSlot } from "@/lib/store";
 import { PanelHeader } from "./PanelHeader";
 import { NumField } from "./NumField";
 
+const SLOTS: RiderSlot[] = ["A", "B", "C"];
+
 export function RiderPanel() {
-  const duelMode = useStore((s) => s.duelMode);
+  const battleMode = useStore((s) => s.battleMode);
   const activeSlot = useStore((s) => s.activeSlot);
   const setActiveSlot = useStore((s) => s.setActiveSlot);
   const riderNameA = useStore((s) => s.riderNameA);
   const riderNameB = useStore((s) => s.riderNameB);
+  const riderNameC = useStore((s) => s.riderNameC);
+
+  const names: Record<RiderSlot, string> = {
+    A: riderNameA,
+    B: riderNameB,
+    C: riderNameC,
+  };
 
   return (
     <div className="flex h-full flex-col">
-      <PanelHeader step="02" title={duelMode ? "Riders — Duel" : "Rider"} />
-      {duelMode && (
-        <div className="grid grid-cols-2 border-b border-ink/30">
-          {(["A", "B"] as RiderSlot[]).map((slot) => {
+      <PanelHeader step="02" title={battleMode ? "Riders — Battle" : "Rider"} />
+      {battleMode && (
+        <div className="grid grid-cols-3 border-b border-ink/30">
+          {SLOTS.map((slot) => {
             const active = activeSlot === slot;
-            const name = slot === "A" ? riderNameA : riderNameB;
-            const accent = slot === "A" ? "var(--signal)" : "#2B6E8A";
+            const name = names[slot];
+            const accent = SLOT_COLORS[slot];
             return (
               <button
                 key={slot}
                 type="button"
                 onClick={() => setActiveSlot(slot)}
-                className={`flex items-center justify-between px-4 py-2 text-left transition ${
+                className={`flex items-center justify-between px-3 py-2 text-left transition ${
                   active ? "bg-paper2" : "bg-paper hover:bg-paper2/60"
                 }`}
                 style={{
@@ -60,12 +69,16 @@ export function RiderPanel() {
 }
 
 function RiderEditor({ slot }: { slot: RiderSlot }) {
-  const rider = useStore((s) => (slot === "A" ? s.riderA : s.riderB));
-  const name = useStore((s) => (slot === "A" ? s.riderNameA : s.riderNameB));
+  const rider = useStore((s) =>
+    slot === "A" ? s.riderA : slot === "B" ? s.riderB : s.riderC,
+  );
+  const name = useStore((s) =>
+    slot === "A" ? s.riderNameA : slot === "B" ? s.riderNameB : s.riderNameC,
+  );
   const setRider = useStore((s) => s.setRider);
   const setPosition = useStore((s) => s.setPosition);
   const setRiderName = useStore((s) => s.setRiderName);
-  const duelMode = useStore((s) => s.duelMode);
+  const battleMode = useStore((s) => s.battleMode);
 
   const positions: Array<{ key: Position; label: string; sub: string }> = [
     { key: "tt", label: "Time Trial", sub: "aero bars" },
@@ -76,7 +89,7 @@ function RiderEditor({ slot }: { slot: RiderSlot }) {
 
   return (
     <>
-      {duelMode && (
+      {battleMode && (
         <div className="field">
           <label>Name</label>
           <input
@@ -170,9 +183,17 @@ function RiderEditor({ slot }: { slot: RiderSlot }) {
           value={rider.crr}
           step={0.0005}
           min={0.002}
-          max={0.01}
+          max={0.02}
           decimals={4}
           onChange={(v) => setRider(slot, { crr: v })}
+        />
+        <NumField
+          label="Max desc (km/h)"
+          value={rider.maxDescentKmh}
+          step={1}
+          min={40}
+          max={100}
+          onChange={(v) => setRider(slot, { maxDescentKmh: v })}
         />
       </div>
 

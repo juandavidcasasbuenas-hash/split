@@ -4,8 +4,8 @@ import { runPrediction } from "@/lib/runPrediction";
 
 export function ActionBar() {
   const course = useStore((s) => s.course);
-  const duelMode = useStore((s) => s.duelMode);
-  const setDuelMode = useStore((s) => s.setDuelMode);
+  const battleMode = useStore((s) => s.battleMode);
+  const setBattleMode = useStore((s) => s.setBattleMode);
   const running = useStore((s) => s.running);
   const progressMessage = useStore((s) => s.progressMessage);
 
@@ -17,21 +17,21 @@ export function ActionBar() {
         <div className="flex divide-x divide-ink">
           <button
             type="button"
-            onClick={() => setDuelMode(false)}
+            onClick={() => setBattleMode(false)}
             className={`px-4 py-2 text-[0.7rem] uppercase tracking-[0.14em] transition-colors ${
-              !duelMode ? "bg-ink text-paper" : "bg-paper hover:bg-paper2"
+              !battleMode ? "bg-ink text-paper" : "bg-paper hover:bg-paper2"
             }`}
           >
             Solo
           </button>
           <button
             type="button"
-            onClick={() => setDuelMode(true)}
+            onClick={() => setBattleMode(true)}
             className={`px-4 py-2 text-[0.7rem] uppercase tracking-[0.14em] transition-colors ${
-              duelMode ? "bg-ink text-paper" : "bg-paper hover:bg-paper2"
+              battleMode ? "bg-ink text-paper" : "bg-paper hover:bg-paper2"
             }`}
           >
-            Duel ⚔
+            Battle ⚔
           </button>
         </div>
 

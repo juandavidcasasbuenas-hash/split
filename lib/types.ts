@@ -36,6 +36,7 @@ export interface Rider {
   crr: number; // dimensionless
   drivetrainEff: number; // 0..1
   position: "tt" | "aero" | "hoods" | "drops";
+  maxDescentKmh: number; // self-imposed descent speed cap; rider brakes/coasts to hold this
 }
 
 import type { Surface } from "./surface";

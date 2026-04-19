@@ -24,16 +24,19 @@ export async function runPrediction(opts: RunOptions = {}): Promise<void> {
     course,
     riderA,
     riderB,
+    riderC,
     race,
-    duelMode,
+    battleMode,
     weather: cachedWeather,
     setRunning,
     setWeather,
     setWeatherError,
     setPredictionA,
     setPredictionB,
+    setPredictionC,
     setStatsA,
     setStatsB,
+    setStatsC,
     setSensitivity,
   } = state;
 
@@ -69,13 +72,16 @@ export async function runPrediction(opts: RunOptions = {}): Promise<void> {
     const predA = predict(course, riderA, weather, baseOptions);
     setPredictionA(predA);
 
-    let predB = null;
-    if (duelMode) {
-      predB = predict(course, riderB, weather, baseOptions);
+    if (battleMode) {
+      const predB = predict(course, riderB, weather, baseOptions);
       setPredictionB(predB);
+      const predC = predict(course, riderC, weather, baseOptions);
+      setPredictionC(predC);
     } else {
       setPredictionB(null);
+      setPredictionC(null);
       setStatsB(null);
+      setStatsC(null);
     }
 
     if (!opts.lightweight) {
@@ -87,13 +93,19 @@ export async function runPrediction(opts: RunOptions = {}): Promise<void> {
       });
       setStatsA(statsA);
 
-      if (duelMode) {
+      if (battleMode) {
         await new Promise((r) => setTimeout(r, 10));
         const statsB = monteCarlo(course, riderB, weather, {
           iterations: 120,
           baseOptions,
         });
         setStatsB(statsB);
+        await new Promise((r) => setTimeout(r, 10));
+        const statsC = monteCarlo(course, riderC, weather, {
+          iterations: 120,
+          baseOptions,
+        });
+        setStatsC(statsC);
       }
 
       setRunning(true, "Sensitivity");

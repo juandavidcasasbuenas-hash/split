@@ -1,12 +1,13 @@
 "use client";
-import { useStore } from "@/lib/store";
+import { useStore, SLOT_COLORS } from "@/lib/store";
 import { useMemo, useState } from "react";
 
 export function Profile() {
   const course = useStore((s) => s.course);
   const prediction = useStore((s) => s.predictionA);
   const predictionB = useStore((s) => s.predictionB);
-  const duelMode = useStore((s) => s.duelMode);
+  const predictionC = useStore((s) => s.predictionC);
+  const battleMode = useStore((s) => s.battleMode);
   const [hover, setHover] = useState<number | null>(null);
 
   const data = useMemo(() => {
@@ -18,20 +19,30 @@ export function Profile() {
     const winds = segs.map((r) => r.windParallel);
     const powers = segs.map((r) => r.power);
     const speedsB =
-      duelMode && predictionB
+      battleMode && predictionB
         ? predictionB.perSegment.map((r) => r.v * 3.6)
         : null;
-    const allSpeedsMin = speedsB
-      ? Math.min(Math.min(...speeds), Math.min(...speedsB))
-      : Math.min(...speeds);
-    const allSpeedsMax = speedsB
-      ? Math.max(Math.max(...speeds), Math.max(...speedsB))
-      : Math.max(...speeds);
+    const speedsC =
+      battleMode && predictionC
+        ? predictionC.perSegment.map((r) => r.v * 3.6)
+        : null;
+    const extras = [speedsB, speedsC].filter(
+      (x): x is number[] => x !== null,
+    );
+    const allSpeedsMin = Math.min(
+      ...speeds,
+      ...extras.flatMap((s) => s),
+    );
+    const allSpeedsMax = Math.max(
+      ...speeds,
+      ...extras.flatMap((s) => s),
+    );
     return {
       dists,
       eles,
       speeds,
       speedsB,
+      speedsC,
       winds,
       powers,
       distMax: dists[dists.length - 1],
@@ -41,7 +52,7 @@ export function Profile() {
       speedMax: allSpeedsMax,
       windMax: Math.max(5, ...winds.map(Math.abs)),
     };
-  }, [course, prediction, predictionB, duelMode]);
+  }, [course, prediction, predictionB, predictionC, battleMode]);
 
   if (!data || !prediction) {
     return (
@@ -97,6 +108,15 @@ export function Profile() {
         .join(" ")
     : null;
 
+  const speedLineC = data.speedsC
+    ? data.dists
+        .map(
+          (d, i) =>
+            `${i === 0 ? "M" : "L"} ${xAt(d)},${ySpeed(data.speedsC![i])}`,
+        )
+        .join(" ")
+    : null;
+
   // wind band below
   const windY0 = H - padB + 20;
   const windH = 28;
@@ -143,9 +163,12 @@ export function Profile() {
         </div>
         <div className="hidden gap-4 md:flex">
           <LegendDot color="#121821" label="Elevation" line />
-          <LegendDot color="#C1432A" label={duelMode ? "Rider A speed" : "Predicted speed"} line />
-          {duelMode && predictionB && (
-            <LegendDot color="#2B6E8A" label="Rider B speed" line />
+          <LegendDot color={SLOT_COLORS.A} label={battleMode ? "Rider A speed" : "Predicted speed"} line />
+          {battleMode && predictionB && (
+            <LegendDot color={SLOT_COLORS.B} label="Rider B speed" line />
+          )}
+          {battleMode && predictionC && (
+            <LegendDot color={SLOT_COLORS.C} label="Rider C speed" line />
           )}
           <LegendDot color="#C1432A" label="Headwind" />
           <LegendDot color="#486B4E" label="Tailwind" />
@@ -224,9 +247,18 @@ export function Profile() {
               <path
                 d={speedLineB}
                 fill="none"
-                stroke="#2B6E8A"
+                stroke={SLOT_COLORS.B}
                 strokeWidth="1.4"
                 strokeDasharray="3 2"
+              />
+            )}
+            {speedLineC && (
+              <path
+                d={speedLineC}
+                fill="none"
+                stroke={SLOT_COLORS.C}
+                strokeWidth="1.4"
+                strokeDasharray="1 2"
               />
             )}
 

@@ -11,26 +11,26 @@ export const PACING: Record<
 > = {
   steady: {
     label: "Steady",
-    climbBonus: 0.05,
-    descentRelief: 0.1,
+    climbBonus: 0.06,
+    descentRelief: 0.25,
     caption: "Hold target IF — minimal surges, lowest VI",
   },
   variable: {
     label: "Variable",
-    climbBonus: 0.18,
-    descentRelief: 0.4,
-    caption: "Push climbs, ease over crests, recover on descents",
+    climbBonus: 0.22,
+    descentRelief: 0.7,
+    caption: "Push climbs, ease over crests, coast steep descents",
   },
   surges: {
     label: "Surges",
-    climbBonus: 0.28,
-    descentRelief: 0.7,
-    caption: "Above-threshold kicks on climbs, freewheel descents — highest VI",
+    climbBonus: 0.32,
+    descentRelief: 1.0,
+    caption: "Above-threshold kicks on climbs, full freewheel on descents",
   },
   custom: {
     label: "Custom",
-    climbBonus: 0.18,
-    descentRelief: 0.4,
+    climbBonus: 0.22,
+    descentRelief: 0.7,
     caption: "Dial climb and descent percentages yourself",
   },
 };

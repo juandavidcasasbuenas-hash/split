@@ -1,21 +1,22 @@
 "use client";
 import { motion, AnimatePresence } from "framer-motion";
-import { useStore } from "@/lib/store";
+import { useStore, SLOT_COLORS } from "@/lib/store";
+import type { RiderSlot } from "@/lib/store";
 import { fmtTime, fmtBand, fmtDelta, windLabel } from "@/lib/util";
 import { SwapCourseButton } from "./CourseLoader";
 
-const RED = "#C1432A";
-const BLUE = "#2B6E8A";
-
 export function PredictionBar() {
   const course = useStore((s) => s.course);
-  const duelMode = useStore((s) => s.duelMode);
+  const battleMode = useStore((s) => s.battleMode);
   const predA = useStore((s) => s.predictionA);
   const predB = useStore((s) => s.predictionB);
+  const predC = useStore((s) => s.predictionC);
   const statsA = useStore((s) => s.statsA);
   const statsB = useStore((s) => s.statsB);
+  const statsC = useStore((s) => s.statsC);
   const nameA = useStore((s) => s.riderNameA);
   const nameB = useStore((s) => s.riderNameB);
+  const nameC = useStore((s) => s.riderNameC);
   const weather = useStore((s) => s.weather);
   const running = useStore((s) => s.running);
 
@@ -23,11 +24,14 @@ export function PredictionBar() {
 
   const tA = predA ? statsA?.median ?? predA.totalTime : null;
   const tB = predB ? statsB?.median ?? predB.totalTime : null;
+  const tC = predC ? statsC?.median ?? predC.totalTime : null;
 
   const firstWeather = weather?.points[0];
   const conditions = firstWeather
     ? `${firstWeather.temperature[0].toFixed(0)}°C · ${firstWeather.windspeed[0].toFixed(1)} m/s ${windLabel(firstWeather.winddir[0])}`
     : null;
+
+  const battleReady = battleMode && tA !== null && tB !== null && tC !== null;
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-30 flex justify-center px-3 pt-3 md:pt-4">
@@ -37,12 +41,13 @@ export function PredictionBar() {
         transition={{ duration: 0.35, ease: [0.2, 0.65, 0.2, 1] }}
         className="pointer-events-auto max-w-[96vw] border border-ink bg-paper shadow-[4px_4px_0_var(--ink)]"
       >
-        {duelMode && tA !== null && tB !== null ? (
-          <DuelBar
-            tA={tA}
-            tB={tB}
-            nameA={nameA}
-            nameB={nameB}
+        {battleReady ? (
+          <BattleBar
+            riders={[
+              { slot: "A", name: nameA, time: tA! },
+              { slot: "B", name: nameB, time: tB! },
+              { slot: "C", name: nameC, time: tC! },
+            ]}
             course={course.name}
             distanceKm={course.totalDistance / 1000}
           />
@@ -142,90 +147,80 @@ function SoloBar({
   );
 }
 
-function DuelBar({
-  tA,
-  tB,
-  nameA,
-  nameB,
+interface BattleEntry {
+  slot: RiderSlot;
+  name: string;
+  time: number;
+}
+
+function BattleBar({
+  riders,
   course,
   distanceKm,
 }: {
-  tA: number;
-  tB: number;
-  nameA: string;
-  nameB: string;
+  riders: BattleEntry[];
   course: string;
   distanceKm: number;
 }) {
-  const aWins = tA < tB;
-  const gap = Math.abs(tA - tB);
-  const winnerName = aWins ? nameA : nameB;
-  const winnerColor = aWins ? RED : BLUE;
+  const sorted = [...riders].sort((a, b) => a.time - b.time);
+  const winner = sorted[0];
+  const winnerColor = SLOT_COLORS[winner.slot];
   return (
     <div className="flex items-stretch divide-x divide-ink">
       <div className="hidden min-w-[180px] flex-col justify-center px-4 py-2 md:flex">
-        <div className="eyebrow text-[0.6rem]">Duel</div>
+        <div className="eyebrow text-[0.6rem]">Battle</div>
         <div className="font-display text-sm leading-tight">{course}</div>
         <div className="font-mono text-[0.7rem] text-graphite mono-nums">
           {distanceKm.toFixed(1)} km
         </div>
       </div>
 
-      <div className="flex items-center gap-4 px-4 py-2">
-        <div className="flex flex-col items-start">
-          <div
-            className="text-[0.55rem] uppercase tracking-[0.16em]"
-            style={{ color: RED }}
-          >
-            {nameA}
-          </div>
-          <div
-            className="font-display leading-none mono-nums"
-            style={{
-              fontSize: "clamp(1.4rem, 4vw, 1.9rem)",
-              fontWeight: 400,
-              opacity: aWins ? 1 : 0.55,
-            }}
-          >
-            {fmtTime(tA)}
-          </div>
-        </div>
-        <div className="flex flex-col items-center">
-          <div
-            className="eyebrow text-[0.55rem]"
-            style={{ color: winnerColor }}
-          >
-            Gap
-          </div>
-          <div
-            className="font-display leading-none mono-nums"
-            style={{
-              fontSize: "clamp(1.1rem, 3vw, 1.5rem)",
-              color: winnerColor,
-              fontWeight: 500,
-            }}
-          >
-            {aWins ? "←" : "→"} {fmtDelta(gap).replace("+", "")}
-          </div>
-        </div>
-        <div className="flex flex-col items-start">
-          <div
-            className="text-[0.55rem] uppercase tracking-[0.16em]"
-            style={{ color: BLUE }}
-          >
-            {nameB}
-          </div>
-          <div
-            className="font-display leading-none mono-nums"
-            style={{
-              fontSize: "clamp(1.4rem, 4vw, 1.9rem)",
-              fontWeight: 400,
-              opacity: aWins ? 0.55 : 1,
-            }}
-          >
-            {fmtTime(tB)}
-          </div>
-        </div>
+      <div className="flex items-stretch divide-x divide-ink">
+        {sorted.map((r, i) => {
+          const color = SLOT_COLORS[r.slot];
+          const gap = r.time - winner.time;
+          const isWinner = i === 0;
+          return (
+            <div
+              key={r.slot}
+              className="flex flex-col items-start justify-center px-3 py-2 md:px-4"
+              style={{ minWidth: 130 }}
+            >
+              <div className="flex items-baseline gap-2">
+                <span
+                  className="text-[0.55rem] uppercase tracking-[0.18em] mono-nums"
+                  style={{ color: "rgba(18,24,33,0.55)" }}
+                >
+                  {i + 1}
+                </span>
+                <span
+                  className="text-[0.55rem] uppercase tracking-[0.16em]"
+                  style={{ color }}
+                >
+                  {r.name}
+                </span>
+              </div>
+              <div
+                className="font-display leading-none mono-nums"
+                style={{
+                  fontSize: "clamp(1.2rem, 3.4vw, 1.7rem)",
+                  fontWeight: 400,
+                  opacity: isWinner ? 1 : 0.7,
+                }}
+              >
+                {fmtTime(r.time)}
+              </div>
+              {!isWinner && (
+                <div
+                  className="mt-0.5 font-mono text-[0.7rem] mono-nums"
+                  style={{ color: "rgba(18,24,33,0.6)" }}
+                >
+                  +{fmtDelta(gap).replace("+", "")}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="hidden items-center px-3 py-2 md:flex">
@@ -238,7 +233,7 @@ function DuelBar({
             padding: "0.2rem 0.5rem",
           }}
         >
-          {winnerName} wins
+          {winner.name} wins
         </span>
       </div>
 

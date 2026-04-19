@@ -22,31 +22,44 @@ const cdaByPosition: Record<Position, number> = {
   drops: 0.3,
 };
 
-export type RiderSlot = "A" | "B";
+export type RiderSlot = "A" | "B" | "C";
+
+export const SLOT_COLORS: Record<RiderSlot, string> = {
+  A: "#C1432A",
+  B: "#2B6E8A",
+  C: "#D4A547",
+};
 
 const riderDefaults = (slot: RiderSlot): Rider => ({
-  ftp: slot === "A" ? 280 : 295,
-  targetIF: slot === "A" ? 0.78 : 0.76,
-  riderMass: slot === "A" ? 72 : 68,
+  ftp: slot === "A" ? 280 : slot === "B" ? 295 : 270,
+  targetIF: slot === "A" ? 0.78 : slot === "B" ? 0.76 : 0.8,
+  riderMass: slot === "A" ? 72 : slot === "B" ? 68 : 75,
   bikeMass: 8.5,
   kitMass: 2.5,
   cda: cdaByPosition.tt,
-  crr: 0.0045,
+  crr: 0.01,
   drivetrainEff: 0.976,
   position: "tt",
+  maxDescentKmh: 70,
 });
 
-const riderNames = { A: "Rider A", B: "Rider B" };
+const riderNames: Record<RiderSlot, string> = {
+  A: "Rider A",
+  B: "Rider B",
+  C: "Rider C",
+};
 
 interface State {
   course: Course | null;
   courseError: string | null;
 
-  duelMode: boolean;
+  battleMode: boolean;
   riderA: Rider;
   riderB: Rider;
+  riderC: Rider;
   riderNameA: string;
   riderNameB: string;
+  riderNameC: string;
   activeSlot: RiderSlot;
 
   race: RaceSetup;
@@ -55,8 +68,10 @@ interface State {
 
   predictionA: PredictionOutput | null;
   predictionB: PredictionOutput | null;
+  predictionC: PredictionOutput | null;
   statsA: MonteCarloStats | null;
   statsB: MonteCarloStats | null;
+  statsC: MonteCarloStats | null;
   sensitivity: Sensitivity[] | null;
 
   running: boolean;
@@ -65,7 +80,7 @@ interface State {
   setCourse: (c: Course | null) => void;
   setCourseError: (e: string | null) => void;
 
-  setDuelMode: (b: boolean) => void;
+  setBattleMode: (b: boolean) => void;
   setActiveSlot: (s: RiderSlot) => void;
   setRider: (slot: RiderSlot, patch: Partial<Rider>) => void;
   setPosition: (slot: RiderSlot, p: Position) => void;
@@ -84,8 +99,10 @@ interface State {
   setWeatherError: (e: string | null) => void;
   setPredictionA: (p: PredictionOutput | null) => void;
   setPredictionB: (p: PredictionOutput | null) => void;
+  setPredictionC: (p: PredictionOutput | null) => void;
   setStatsA: (s: MonteCarloStats | null) => void;
   setStatsB: (s: MonteCarloStats | null) => void;
+  setStatsC: (s: MonteCarloStats | null) => void;
   setSensitivity: (s: Sensitivity[] | null) => void;
 
   setRunning: (b: boolean, msg?: string) => void;
@@ -102,11 +119,13 @@ export const useStore = create<State>((set) => ({
   course: null,
   courseError: null,
 
-  duelMode: false,
+  battleMode: false,
   riderA: riderDefaults("A"),
   riderB: riderDefaults("B"),
+  riderC: riderDefaults("C"),
   riderNameA: riderNames.A,
   riderNameB: riderNames.B,
+  riderNameC: riderNames.C,
   activeSlot: "A",
 
   race: {
@@ -115,15 +134,17 @@ export const useStore = create<State>((set) => ({
     surface: "tarmac",
     drafting: "solo",
     pacing: "variable",
-    customClimbBonus: 0.18,
-    customDescentRelief: 0.4,
+    customClimbBonus: 0.22,
+    customDescentRelief: 0.7,
   },
   weather: null,
   weatherError: null,
   predictionA: null,
   predictionB: null,
+  predictionC: null,
   statsA: null,
   statsB: null,
+  statsC: null,
   sensitivity: null,
 
   running: false,
@@ -132,28 +153,44 @@ export const useStore = create<State>((set) => ({
   setCourse: (c) => set({ course: c, courseError: null }),
   setCourseError: (e) => set({ courseError: e }),
 
-  setDuelMode: (b) =>
+  setBattleMode: (b) =>
     set((s) => ({
-      duelMode: b,
+      battleMode: b,
       activeSlot: b ? s.activeSlot : "A",
       predictionB: b ? s.predictionB : null,
+      predictionC: b ? s.predictionC : null,
       statsB: b ? s.statsB : null,
+      statsC: b ? s.statsC : null,
     })),
   setActiveSlot: (slot) => set({ activeSlot: slot }),
   setRider: (slot, patch) =>
-    set((s) => ({
-      ...(slot === "A"
-        ? { riderA: { ...s.riderA, ...patch } }
-        : { riderB: { ...s.riderB, ...patch } }),
-    })),
+    set((s) => {
+      const current = slot === "A" ? s.riderA : slot === "B" ? s.riderB : s.riderC;
+      const next = { ...current, ...patch };
+      return slot === "A"
+        ? { riderA: next }
+        : slot === "B"
+        ? { riderB: next }
+        : { riderC: next };
+    }),
   setPosition: (slot, p) =>
     set((s) => {
-      const r = slot === "A" ? s.riderA : s.riderB;
-      const next = { ...r, position: p, cda: cdaByPosition[p] };
-      return slot === "A" ? { riderA: next } : { riderB: next };
+      const current = slot === "A" ? s.riderA : slot === "B" ? s.riderB : s.riderC;
+      const next = { ...current, position: p, cda: cdaByPosition[p] };
+      return slot === "A"
+        ? { riderA: next }
+        : slot === "B"
+        ? { riderB: next }
+        : { riderC: next };
     }),
   setRiderName: (slot, name) =>
-    set(() => (slot === "A" ? { riderNameA: name } : { riderNameB: name })),
+    set(() =>
+      slot === "A"
+        ? { riderNameA: name }
+        : slot === "B"
+        ? { riderNameB: name }
+        : { riderNameC: name },
+    ),
 
   setRace: (patch) => set((s) => ({ race: { ...s.race, ...patch } })),
   setSurface: (surface) => set((s) => ({ race: { ...s.race, surface } })),
@@ -175,8 +212,10 @@ export const useStore = create<State>((set) => ({
   setWeatherError: (e) => set({ weatherError: e }),
   setPredictionA: (p) => set({ predictionA: p }),
   setPredictionB: (p) => set({ predictionB: p }),
+  setPredictionC: (p) => set({ predictionC: p }),
   setStatsA: (s) => set({ statsA: s }),
   setStatsB: (s) => set({ statsB: s }),
+  setStatsC: (s) => set({ statsC: s }),
   setSensitivity: (s) => set({ sensitivity: s }),
 
   setRunning: (b, msg) => set({ running: b, progressMessage: msg ?? "" }),

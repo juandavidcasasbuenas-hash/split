@@ -32,6 +32,32 @@ export function airDensity(
 }
 
 /**
+ * Crank-side power required to hold a given v on a given grade.
+ * Negative result means gravity > resistive forces — rider would accelerate
+ * past v without pedaling and must brake.
+ */
+export function requiredPowerForVelocity(
+  v: number,
+  grade: number,
+  rho: number,
+  cda: number,
+  crr: number,
+  totalMass: number,
+  windParallel: number,
+  drivetrainEff: number,
+): number {
+  const theta = Math.atan(grade);
+  const sinT = Math.sin(theta);
+  const cosT = Math.cos(theta);
+  const vApp = v + windParallel;
+  const aero = 0.5 * rho * cda * vApp * Math.abs(vApp);
+  const roll = crr * totalMass * G * cosT;
+  const grav = totalMass * G * sinT;
+  const Pwheel = (aero + roll + grav) * v;
+  return Pwheel / drivetrainEff;
+}
+
+/**
  * Solve for velocity v given power P balance over a segment.
  * F_drive = 0.5 * rho * CdA * (v + w_par)^2 * sign + Crr*m*g*cos(theta) + m*g*sin(theta)
  * P_wheel = F_drive * v, P_in = P_wheel / eta
@@ -232,9 +258,12 @@ export function predict(
   const draftingCdaMul = opts.draftingCdaMul ?? 1;
   const climbBonus = opts.climbBonus ?? 0.2;
   const descentRelief = opts.descentRelief ?? 0.4;
-  // endpoint grades for normalization
+  // endpoint grades for the pacing ramps
   const CLIMB_STEEP_PCT = 12;
-  const DESCENT_DEEP_PCT = 20;
+  // grade (negative %) at which the descentRelief reduction is fully applied.
+  // Past this grade, no further power easing — speed cap takes over.
+  const COAST_GRADE_PCT = -6;
+  const maxDescentMs = (rider.maxDescentKmh ?? 70) / 3.6;
 
   const results: SegmentResult[] = [];
   let cumT = 0;
@@ -250,24 +279,26 @@ export function predict(
 
     const gradePct = seg.grade * 100;
 
-    // Variable-pacing power modulation
+    // Pacing power modulation: push climbs, ease descents
     let powerMod = 1;
     if (gradePct > 0.5) {
       powerMod =
         1 + Math.min(climbBonus, (gradePct / CLIMB_STEEP_PCT) * climbBonus);
     } else if (gradePct < -1) {
-      powerMod = Math.max(
-        1 - descentRelief,
-        1 + (gradePct / DESCENT_DEEP_PCT) * descentRelief,
+      const tFrac = Math.min(
+        1,
+        (Math.abs(gradePct) - 1) / (Math.abs(COAST_GRADE_PCT) - 1),
       );
+      powerMod = 1 - tFrac * descentRelief;
+      if (powerMod < 0.05) powerMod = 0;
     }
-    const P = basePower * powerMod;
+    let P = basePower * powerMod;
 
     // Terrain-gated drafting: full benefit on flats/rollers, fades to solo on climbs
     const draftMul = effectiveDraftMul(draftingCdaMul, gradePct);
     const effCda = cda * draftMul;
 
-    const v = solveVelocity(
+    let v = solveVelocity(
       P,
       seg.grade,
       rho,
@@ -277,6 +308,29 @@ export function predict(
       wPar,
       rider.drivetrainEff,
     );
+
+    // Descent speed cap: rider brakes / light-pedals to hold maxDescentKmh.
+    if (v > maxDescentMs) {
+      const requiredP = requiredPowerForVelocity(
+        maxDescentMs,
+        seg.grade,
+        rho,
+        effCda,
+        crr,
+        totalMass,
+        wPar,
+        rider.drivetrainEff,
+      );
+      if (requiredP <= 0) {
+        // gravity overpowers resistive forces — coast and brake to cap
+        P = 0;
+      } else {
+        // light pedal to hold cap; never above what was originally planned
+        P = Math.min(P, requiredP);
+      }
+      v = maxDescentMs;
+    }
+
     const t = seg.dist / v;
     cumT += t;
     results.push({
